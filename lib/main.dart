@@ -1,72 +1,122 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:collection';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:padelmarcheflutter/Login.dart';
+import 'package:padelmarcheflutter/GestioneFirebase.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'dart:ui' as ui;
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:padelmarcheflutter/PaginaProfilo.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  GestioneFirebase gestioneFirebase = GestioneFirebase();
+
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Set default home.
+  Widget _defaultHome = new MyLoginPage();
+
+  /// se non c'è un account in memoria si va alla pagina di login
+  if (gestioneFirebase.checkState()) {
+    // FirebaseAuth.instance.currentUser!=null) {
+    _defaultHome = HomePage(); //new MyApp();
+  }
+  runApp(new MaterialApp(
+    theme: CustomTheme.lightTheme,
+    darkTheme: CustomTheme.darkTheme,
+    title: 'PadelMarche',
+    home: _defaultHome,
+
+    /// si definiscono le rotta utili alla navigazione
+    routes: <String, WidgetBuilder>{
+
+      '/home': (BuildContext context) => new HomePage(),
+      MyLoginPage.routeName: (BuildContext context) => new MyLoginPage(),
+  //    ViewProfile.routeName: (context) => ViewProfile(),  COMMENTATO IO
+   //   Comments.routeName: (context) => Comments()  COMMENTATIO IO
+    },
+  ));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class HomePage extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+  _HomePage createState() => _HomePage();
+}
+
+class _HomePage extends State<HomePage> {
+  final GestioneFirebase gestioneFirebase = GestioneFirebase();
+  bool showProgress = false;
+  late String email, password;
+
+  //String annoCorrente = "";
+  // List anni = List.generate(0, (index) => null);  COMMENTATO IO
+  // List posts = List.generate(0, (index) => null);  COMMENTATO IO
+
+  late HashMap account = HashMap();
+
+  @override
+  void initState() {
+    super.initState();
+    init();
+  }
+
+  ///inizializzazione
+  ///si recuperano le informazioni dell'account loggato
+  ///si recuperano le classi associate al corso di laurea dell'account loggato
+  ///si recuperano i post della classe dell'account loggato
+  void init() async { /*
+    await gestioneFirebase.leggiInfo().then((acc) {
+      setState(() {
+        account = acc;
+        annoCorrente = account['idClasse'];
+      });
+    });
+    await gestioneFirebase.downloadAnni(account['idCorso']).then((ann) {
+      setState(() {
+        anni = ann;
+      });
+    });
+    await gestioneFirebase
+        .leggiPosts(account['idCorso'], account['idClasse'])
+        .then((ris) {
+      setState(() {
+        posts = ris;
+      });
+    }); */
+  }
+
+  ///funzione che viene richiamata quando devo visualizzare il profilo alla quale si passa l'hashMap identificativa dell'account
+  void _lauchUserProfile() {
+    Navigator.pushNamed(
+      context,
+      ViewProfile.routeName,
+      arguments: MyProfile(account),
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  ///funzione utile alla cancellazione delle informazioni salvate in locale riguardo l'account
+  ///ed utile per tornare alla pagina di login
+  void logout() async {
+    await FirebaseAuth.instance.signOut();
+    Navigator.of(context).pushAndRemoveUntil(
+      // the new route
+      MaterialPageRoute(
+        builder: (BuildContext context) => MyLoginPage(),
+      ),
+      ModalRoute.withName('/home'),
+    );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -76,15 +126,18 @@ class _MyHomePageState extends State<MyHomePage> {
     // The Flutter framework has been optimized to make rerunning build methods
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
-    return Scaffold(
+  /*  return Scaffold(
       appBar: AppBar(
         // TRY THIS: Try changing the color here to a specific color (to
         // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
         // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Theme
+            .of(context)
+            .colorScheme
+            .inversePrimary,
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+    //    title: Text(widget.title),
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
@@ -110,7 +163,10 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Text(
               '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: Theme
+                  .of(context)
+                  .textTheme
+                  .headlineMedium,
             ),
           ],
         ),
@@ -120,6 +176,85 @@ class _MyHomePageState extends State<MyHomePage> {
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+    ); */
+  }
+
+}
+
+
+  ///definizione dei temi dell'applicazione
+  class CustomTheme {
+  ///tema chiaro
+  static ThemeData get lightTheme {
+  const Color darkRed = Color(0xFF8B0122);
+  const Color red = Color(0xFFFF0000);
+  const Color lightRed = Color(0xFFFF5A36);
+  return ThemeData(
+  primaryColor: red,
+  primaryColorLight: lightRed,
+  primaryColorDark: darkRed,
+  colorScheme: ColorScheme(
+  onPrimary: Colors.red,
+  background: Colors.red,
+  secondaryVariant: Colors.red,
+  surface: Colors.red,
+  brightness: Brightness.light,
+  onError: Colors.white,
+  onSecondary: Colors.red,
+  primaryVariant: Colors.red,
+  error: red,
+  onBackground: Colors.grey.shade100,
+  onSurface: Colors.black,
+  //colore del bordo del form text
+  secondary: lightRed,
+  //Listview animation
+  primary: red, //colore del bordo del form text con focus
+  ),
+  cardColor: Colors.white,
+  textTheme: ThemeData.light().textTheme,
+  scaffoldBackgroundColor: Colors.grey.shade300,
+  fontFamily: 'Montserrat',
+  buttonTheme: ButtonThemeData(
+  buttonColor: red,
+  ),
+  iconTheme: ThemeData.light().iconTheme.copyWith(color: Colors.white),
+  );
+  }
+
+  ///tema scuro
+  static ThemeData get darkTheme {
+  const Color darkRed = Color(0xFF8B0122);
+  const Color red = Color(0xFFFF0000);
+  const Color lightRed = Color(0xFFFF5A36);
+  return ThemeData(
+  primaryColor: red,
+  primaryColorLight: lightRed,
+  primaryColorDark: darkRed,
+  colorScheme: ColorScheme(
+  onPrimary: Colors.red,
+  background: Colors.red,
+  secondaryVariant: Colors.red,
+  surface: Colors.red,
+  brightness: Brightness.dark,
+  onError: Colors.white,
+  onSecondary: Colors.red,
+  primaryVariant: Colors.red,
+  error: red,
+  onBackground: Colors.grey.shade600,
+  onSurface: Colors.white,
+  //colore del bordo del form text
+  secondary: lightRed,
+  //Listview animation
+  primary: red, //colore del bordo del form text con focus
+  ),
+  cardColor: Colors.black,
+  textTheme: ThemeData.dark().textTheme,
+  scaffoldBackgroundColor: Colors.grey.shade800,
+  fontFamily: 'Montserrat',
+  buttonTheme: ButtonThemeData(
+  buttonColor: red,
+  ),
+  iconTheme: ThemeData.dark().iconTheme.copyWith(color: Colors.white),
+  );
   }
 }

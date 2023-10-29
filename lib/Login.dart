@@ -160,6 +160,7 @@ class _MyLoginPageState extends State<MyLoginPage> {
             ],
       ),
     ),
+    ),
     );
   }
 
